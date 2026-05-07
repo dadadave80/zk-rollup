@@ -1,6 +1,39 @@
 [package]
 name = "sequencer"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "sequencer"
+path = "src/main.rs"
+
+[[bin]]
+name = "compute-root"
+path = "src/bin/compute_root.rs"
+
+[[bin]]
+name = "demo"
+path = "src/bin/demo.rs"
 
 [dependencies]
+shared-types = { workspace = true }
+stf = { workspace = true }
+alloy = { workspace = true }
+alloy-sol-types = { workspace = true }
+
+tokio = { workspace = true }
+axum = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+hex = { workspace = true }
+
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+dotenvy = { workspace = true }
+clap = { workspace = true }
+k256 = { workspace = true, features = ["ecdsa"] }
+tiny-keccak = { workspace = true }

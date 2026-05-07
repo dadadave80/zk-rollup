@@ -3,10 +3,19 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "demo": "bun run index.ts",
+    "demo:groth16": "PROOF_MODE=groth16 bun run index.ts",
+    "build:rust": "cargo build --release -p sp1-script -p prover-svc -p sequencer",
+    "build:contracts": "cd contracts && forge build"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "viem": "^2.48.8"
   }
 }

@@ -1,6 +1,7 @@
 # Compiler files
 cache/
 out/
+remappings.txt
 
 # Commonly ignored directories
 .logs/

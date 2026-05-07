@@ -47,10 +47,32 @@ sequencer, deploys `Rollup.sol`, signs two transfers from a seeded wallet,
 triggers a batch, prints L1 settlement details and final balances, and parks
 so you can poke the running services. Press Ctrl-C to tear everything down.
 
-For real Groth16 proofs end-to-end (slower, ~minutes per proof):
+For real Groth16 proofs end-to-end:
 
 ```bash
 bun run demo:groth16
+```
+
+The first local Groth16 run downloads SP1's trusted setup
+(~6.2 GB tarball into `~/.sp1/circuits/groth16/v6.1.0/`). Plan for ~3 hours
+on a typical home connection plus a few minutes of CPU proving on top.
+
+To pre-fetch the setup ahead of time (resumable):
+
+```bash
+mkdir -p ~/.sp1/circuits/groth16/v6.1.0
+curl -C - --retry 999 --retry-delay 30 --retry-connrefused \
+  -o ~/.sp1/circuits/groth16/v6.1.0/artifacts.tar.gz \
+  https://sp1-circuits.s3-us-east-2.amazonaws.com/v6.1.0-groth16.tar.gz
+# Extract once when the file is ~6.2GB and the download has finished:
+(cd ~/.sp1/circuits/groth16/v6.1.0 && tar -xzf artifacts.tar.gz && rm artifacts.tar.gz)
+```
+
+If you have an SP1 prover-network key, you can skip the local download
+entirely:
+
+```bash
+SP1_PROVER=network NETWORK_PRIVATE_KEY=0x… bun run demo:groth16
 ```
 
 ## Repo layout

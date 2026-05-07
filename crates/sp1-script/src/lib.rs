@@ -80,16 +80,26 @@ pub fn prove(prev_state: &State, batch: &Batch, mode: ProofMode) -> Result<Prove
     let vkey_bytes32 = pk.verifying_key().bytes32().to_string();
     let stdin = build_stdin(prev_state, batch);
 
-    let proof: SP1ProofWithPublicValues = match mode {
-        ProofMode::Mock => client
-            .prove(&pk, stdin)
-            .run()
-            .map_err(|e| anyhow!("sp1 mock prove failed: {e}"))?,
-        ProofMode::Groth16 => client
-            .prove(&pk, stdin)
-            .groth16()
-            .run()
-            .map_err(|e| anyhow!("sp1 groth16 prove failed: {e}"))?,
+    let (proof, proof_bytes): (SP1ProofWithPublicValues, Vec<u8>) = match mode {
+        ProofMode::Mock => {
+            // The SP1 mock prover produces a "Core" proof which has no on-chain
+            // bytes representation; pair it with SP1MockVerifier which expects
+            // exactly an empty proofBytes calldata.
+            let proof = client
+                .prove(&pk, stdin)
+                .run()
+                .map_err(|e| anyhow!("sp1 mock prove failed: {e}"))?;
+            (proof, Vec::new())
+        }
+        ProofMode::Groth16 => {
+            let proof = client
+                .prove(&pk, stdin)
+                .groth16()
+                .run()
+                .map_err(|e| anyhow!("sp1 groth16 prove failed: {e}"))?;
+            let bytes = proof.bytes();
+            (proof, bytes)
+        }
     };
 
     let public_values_bytes = proof.public_values.as_slice().to_vec();
@@ -97,7 +107,7 @@ pub fn prove(prev_state: &State, batch: &Batch, mode: ProofMode) -> Result<Prove
         .map_err(|e| anyhow!("failed to decode committed public values: {e}"))?;
 
     Ok(ProveOutput {
-        proof_bytes: proof.bytes(),
+        proof_bytes,
         public_values,
         public_values_bytes,
         vkey_bytes32,

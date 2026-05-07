@@ -1,0 +1,29 @@
+$schema: 'https://moonrepo.dev/schemas/toolchains.json'
+
+# JS umbrella (required for Bun)
+javascript:
+  packageManager: 'bun'
+  rootPackageOnly: false
+  syncProjectWorkspaceDependencies: true
+
+bun:
+  version: '1.3.13'
+  installArgs: ['--frozen-lockfile']
+
+node:
+  version: '24.15.0'
+  packageManager: 'bun'      # we run TS through bun, but moon still tracks node for tooling fallback
+
+typescript:
+  syncProjectReferences: true
+  routeOutDirToCache: true
+
+# Rust toolchain (WASM plugin in moon v2)
+unstable_rust:
+  version: '1.85.0'
+  components: ['clippy', 'rustfmt']
+  targets: ['riscv32im-succinct-zkvm-elf']  # required by sp1up-installed succinct toolchain
+  bins:
+    - 'cargo-nextest'
+    - 'cargo-binstall'
+  syncToolchainConfig: true

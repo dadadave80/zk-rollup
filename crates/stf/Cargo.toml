@@ -1,0 +1,17 @@
+[package]
+name = "stf"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+shared-types = { workspace = true, default-features = false }
+
+[dev-dependencies]
+k256 = { workspace = true, features = ["ecdsa"] }
+hex = { workspace = true }
+tiny-keccak = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["shared-types/std"]

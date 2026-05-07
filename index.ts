@@ -130,11 +130,12 @@ async function buildSignedTx(
   return { from: account.address, to, amount, nonce, signature };
 }
 
-async function postJSON<T>(url: string, body: unknown): Promise<T> {
+async function postJSON<T>(url: string, body: unknown, timeoutMs = 30 * 60 * 1000): Promise<T> {
   const r = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!r.ok) {
     const text = await r.text();
@@ -205,12 +206,20 @@ async function main() {
 
   // ── 5. prover-svc ────────────────────────────────────────────────────
   step(`Starting prover-svc on :${PROVER_PORT} (PROOF_MODE=${PROOF_MODE})`);
+  // SP1_PROVER picks the backend (mock/cpu/network/cuda); PROOF_MODE picks
+  // the proof type our sp1-script asks for. Mock pairs with the mock backend;
+  // groth16 runs against the cpu backend by default (or network/cuda if the
+  // user set SP1_PROVER themselves).
+  const proverBackend = process.env.SP1_PROVER ?? (PROOF_MODE === "mock" ? "mock" : "cpu");
   await spawnService("prover-svc", [proverBin], {
     PROOF_MODE,
-    SP1_PROVER: PROOF_MODE,
+    SP1_PROVER: proverBackend,
     PROVER_SVC_PORT: String(PROVER_PORT),
   });
-  await waitFor(`http://localhost:${PROVER_PORT}/health`, "prover-svc", 120_000);
+  if (PROOF_MODE !== "mock") {
+    log(`  (groth16 first-run downloads the trusted setup; can take a few minutes)`);
+  }
+  await waitFor(`http://localhost:${PROVER_PORT}/health`, "prover-svc", 600_000);
   log(`  ✓ prover-svc up`);
 
   // ── 6. vkey ──────────────────────────────────────────────────────────
@@ -303,6 +312,10 @@ async function main() {
     );
   }
 
+  if (PROOF_MODE !== "mock") {
+    log(`  triggering batch — groth16 proving locally can take a few minutes...`);
+  }
+  const proveStarted = Date.now();
   const batch = await postJSON<{
     batch_number: number;
     txs: number;
@@ -314,7 +327,8 @@ async function main() {
     gas_used: number;
   }>(`http://localhost:${SEQUENCER_PORT}/batch`, {});
 
-  log(`\n═══ Batch #${batch.batch_number} settled ═══`);
+  const proveSecs = ((Date.now() - proveStarted) / 1000).toFixed(1);
+  log(`\n═══ Batch #${batch.batch_number} settled (prove + L1 in ${proveSecs}s) ═══`);
   log(`  prev_root  = ${batch.prev_root}`);
   log(`  new_root   = ${batch.new_root}`);
   log(`  batch_hash = ${batch.batch_hash}`);

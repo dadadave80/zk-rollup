@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {Script, console} from "forge-std/Script.sol";
 import {SP1MockVerifier} from "@sp1-contracts/SP1MockVerifier.sol";
+import {SP1Verifier as SP1VerifierGroth16} from "@sp1-contracts/v6.0.0/SP1VerifierGroth16.sol";
 import {Rollup} from "../src/Rollup.sol";
 
 /// @notice Deploy script for Rollup. Driven entirely by env so the same script works
@@ -15,13 +16,12 @@ import {Rollup} from "../src/Rollup.sol";
 ///
 /// Optional env:
 ///   PROOF_MODE       — "mock" (default) or "groth16"
-///   SP1_VERIFIER     — explicit verifier address. If unset:
+///   SP1_VERIFIER     — explicit verifier address. Use this on chains where SP1
+///                        already has a canonical verifier deployed (Sepolia
+///                        gateway: 0x3B6041173B80E77f038f3F2C0f9744f04837185e).
+///                        If unset:
 ///                        mock     → deploy a fresh SP1MockVerifier
-///                        groth16  → revert (require an explicit address; on Sepolia
-///                                  the canonical gateway is
-///                                  0x3B6041173B80E77f038f3F2C0f9744f04837185e but
-///                                  callers should pass it in to keep the script
-///                                  agnostic of the chain)
+///                        groth16  → deploy a fresh SP1VerifierGroth16 (v6.0.0)
 contract Deploy is Script {
     function run() external returns (Rollup rollup, address verifier) {
         bytes32 programVKey = vm.envBytes32("PROGRAM_VKEY");
@@ -38,9 +38,8 @@ contract Deploy is Script {
             verifier = address(new SP1MockVerifier());
             console.log("Deployed SP1MockVerifier at", verifier);
         } else {
-            revert(
-                "groth16 mode requires SP1_VERIFIER env: pass the canonical SP1VerifierGateway address for the target chain"
-            );
+            verifier = address(new SP1VerifierGroth16());
+            console.log("Deployed SP1VerifierGroth16 (v6.0.0) at", verifier);
         }
 
         rollup = new Rollup(verifier, programVKey, genesisRoot);

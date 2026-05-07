@@ -1,0 +1,19 @@
+[package]
+name = "sp1-program-stf"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "sp1-program-stf"
+path = "src/main.rs"
+
+[dependencies]
+sp1-zkvm = "6.0.1"
+alloy-sol-types = "*"
+bincode = "1.3"
+shared-types = { path = "../shared-types", default-features = false }
+stf = { path = "../stf", default-features = false }
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+
+[features]
+default = []

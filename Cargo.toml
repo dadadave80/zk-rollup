@@ -1,0 +1,67 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/shared-types",
+    "crates/stf",
+    "crates/sp1-script",
+    "crates/sequencer",
+    "crates/prover-svc",
+    "crates/state",
+    "crates/batcher",
+    "crates/circuits",
+    "crates/circuit-verifier",
+    "crates/node",
+]
+exclude = [
+    "crates/sp1-program-stf",
+    "crates/sp1-program-agg",
+    "crates/sp1-program-circ",
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "MIT"
+
+[workspace.dependencies]
+# SP1
+sp1-zkvm = "6.0.1"
+sp1-sdk = { version = "6.0.1", features = ["blocking", "native-gnark"] }
+sp1-build = "6.0.1"
+
+# ABI / encoding
+alloy-sol-types = "*"
+alloy-primitives = { version = "*", default-features = false }
+
+# Crypto
+tiny-keccak = { version = "2.0", features = ["keccak"] }
+k256 = { version = "0.13", default-features = false, features = ["ecdsa", "alloc"] }
+sha2 = { version = "0.10", default-features = false }
+
+# Serialization
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_json = "1"
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+bincode = "1.3"
+
+# Async / HTTP (host-only)
+tokio = { version = "1", features = ["full"] }
+axum = "0.7"
+reqwest = { version = "0.12", features = ["json"] }
+
+# Errors / utilities (host-only)
+anyhow = "1"
+thiserror = "1"
+clap = { version = "4", features = ["derive", "env"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+dotenvy = "0.15"
+
+# Workspace-internal
+shared-types = { path = "crates/shared-types" }
+stf = { path = "crates/stf" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

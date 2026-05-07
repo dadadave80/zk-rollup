@@ -1,0 +1,22 @@
+node_modules
+.DS_Store
+*.log
+
+# Rust
+target/
+Cargo.lock.bak
+
+# SP1 build outputs
+elf/
+*.elf
+
+# Local env / artifacts
+.env
+.env.local
+proof.bin
+broadcast/
+out/
+cache/
+genesis.json
+deployments/local.json
+deployments/sepolia.json

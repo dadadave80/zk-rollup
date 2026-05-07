@@ -1,0 +1,20 @@
+[package]
+name = "shared-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_bytes = { version = "0.11", default-features = false, features = ["alloc"] }
+serde_json = { workspace = true, optional = true }
+hex = { workspace = true }
+tiny-keccak = { workspace = true }
+alloy-sol-types = { workspace = true }
+k256 = { workspace = true, features = ["ecdsa"] }
+bincode = { workspace = true }
+thiserror = { workspace = true, optional = true }
+
+[features]
+default = ["std"]
+std = ["serde/std", "k256/std", "hex/std", "dep:thiserror", "dep:serde_json"]

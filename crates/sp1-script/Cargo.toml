@@ -1,0 +1,40 @@
+[package]
+name = "sp1-script"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "sp1_script"
+path = "src/lib.rs"
+
+[[bin]]
+name = "execute"
+path = "src/bin/execute.rs"
+
+[[bin]]
+name = "vkey"
+path = "src/bin/vkey.rs"
+
+[[bin]]
+name = "prove"
+path = "src/bin/prove.rs"
+
+[dependencies]
+shared-types = { workspace = true }
+stf = { workspace = true }
+sp1-sdk = { workspace = true }
+alloy-sol-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+dotenvy = { workspace = true }
+k256 = { workspace = true, features = ["ecdsa"] }
+tiny-keccak = { workspace = true }
+
+[build-dependencies]
+sp1-build = { workspace = true }

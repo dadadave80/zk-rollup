@@ -1,6 +1,32 @@
 [package]
 name = "prover-svc"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "prover-svc"
+path = "src/main.rs"
+
+[[bin]]
+name = "smoke"
+path = "src/bin/smoke.rs"
 
 [dependencies]
+shared-types = { workspace = true }
+sp1-script = { path = "../sp1-script" }
+sp1-sdk = { workspace = true }
+k256 = { workspace = true, features = ["ecdsa"] }
+tiny-keccak = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls"] }
+
+tokio = { workspace = true }
+axum = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+hex = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+dotenvy = { workspace = true }

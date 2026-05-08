@@ -24,6 +24,7 @@ alloy-sol-types = { workspace = true }
 
 tokio = { workspace = true }
 axum = { workspace = true }
+tower-http = { version = "0.6", features = ["cors"] }
 reqwest = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

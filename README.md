@@ -101,6 +101,24 @@ several minutes on Sepolia (block time + verifier gas).
 You'll need ~0.05 ETH on the deployer for the SP1 verifier deploy
 (~3M gas) plus the per-batch `submitBatch` cost (~280k gas each).
 
+## Web UI
+
+There's a small React UI that talks to the running sequencer. After
+`bun run demo` (or any `demo:*` variant) is up in one terminal, in
+another:
+
+```bash
+bun run web                # serves http://localhost:3000 with HMR
+```
+
+The page polls the sequencer every ~1.5 s. You can sign and submit
+transfers from alice or bob (signatures are produced in-browser via
+viem against the same seeded keys the orchestrator uses), watch the
+mempool fill, click **build batch + settle** to trigger
+`POST /batch`, and see settled batches accumulate with their L1 tx
+hash and gas cost. The sequencer adds permissive CORS so the UI on
+:3000 can call the API on :7001 directly.
+
 ## Repo layout
 
 ```

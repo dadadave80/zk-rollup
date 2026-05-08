@@ -8,6 +8,7 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use tower_http::cors::{Any, CorsLayer};
 use shared_types::{Address, Tx};
 use tracing::{error, info, warn};
 
@@ -49,6 +50,14 @@ impl IntoResponse for ApiError {
 }
 
 pub fn router(ctx: AppCtx) -> Router {
+    // Permissive CORS so the bundled web UI (served by Bun.serve on :3000)
+    // can talk to the sequencer directly. The sequencer is local-only by
+    // construction; no auth or origin allowlist is meaningful here.
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     Router::new()
         .route("/health", get(health))
         .route("/info", get(info))
@@ -58,6 +67,7 @@ pub fn router(ctx: AppCtx) -> Router {
         .route("/tx", post(submit_tx))
         .route("/batch", post(trigger_batch))
         .with_state(ctx)
+        .layer(cors)
 }
 
 async fn health() -> &'static str {
@@ -225,15 +235,15 @@ async fn trigger_batch(AxumState(ctx): AxumState<AppCtx>) -> Result<Json<BatchRe
     info!(txs, "building batch");
 
     // 2. Ask prover-svc for a proof.
-    let prove = ctx
-        .prover
-        .prove(&prev_state, &batch)
-        .await
-        .map_err(|e| {
-            error!(error = %e, "prove failed");
-            // restore the mempool so the user's txs aren't silently lost
-            ApiError::Internal(format!("prove failed: {e}"))
-        })?;
+    let prove = match ctx.prover.prove(&prev_state, &batch).await {
+        Ok(p) => p,
+        Err(e) => {
+            error!(error = %e, "prove failed; restoring mempool");
+            let mut s = ctx.state.write().await;
+            s.restore_mempool(batch);
+            return Err(ApiError::Internal(format!("prove failed: {e}")));
+        }
+    };
     info!(prev_root = %prove.prev_root, new_root = %prove.new_root, "proof produced");
 
     // 3. Decode hex into bytes for L1 calldata.

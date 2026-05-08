@@ -79,6 +79,28 @@ entirely:
 SP1_PROVER=network NETWORK_PRIVATE_KEY=0x… bun run demo:groth16
 ```
 
+### Sepolia
+
+The same orchestrator targets Sepolia (or any L1) by setting `NETWORK=sepolia`
+and supplying RPC + a funded private key. Defaults `PROOF_MODE=groth16` and
+points the deploy script at the canonical SP1 verifier gateway
+(`0x3B6041173B80E77f038f3F2C0f9744f04837185e`):
+
+```bash
+export SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/<key>
+export DEPLOYER_PRIVATE_KEY=0x<funded-sepolia-key>
+bun run demo:sepolia
+```
+
+The orchestrator skips anvil, broadcasts `Deploy.s.sol` against your RPC
+with `--slow` (waits for inclusion), starts prover-svc + sequencer pointed
+at Sepolia, signs two transfers, and prints the Etherscan link for the
+settled batch on completion. Deploy + settlement together typically take
+several minutes on Sepolia (block time + verifier gas).
+
+You'll need ~0.05 ETH on the deployer for the SP1 verifier deploy
+(~3M gas) plus the per-batch `submitBatch` cost (~280k gas each).
+
 ## Repo layout
 
 ```
@@ -196,10 +218,10 @@ cargo run --release -p sequencer --bin demo
 
 ## Configuration
 
-See `.env.example` for the full list. The orchestrator hardcodes anvil[0]'s
-private key for local runs; for Sepolia override `DEPLOYER_PRIVATE_KEY`,
-`L1_RPC_URL`, `L1_CHAIN_ID`, and pass an explicit `SP1_VERIFIER` (the
-canonical Sepolia gateway is `0x3B6041173B80E77f038f3F2C0f9744f04837185e`).
+See `.env.example` for the full list. Local anvil runs use the hardcoded
+anvil[0] private key; Sepolia runs read `SEPOLIA_RPC_URL` and
+`DEPLOYER_PRIVATE_KEY` from env (see the Sepolia section above) and
+auto-route Deploy.s.sol at the canonical SP1 verifier gateway.
 
 ## Testing
 

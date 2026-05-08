@@ -35,10 +35,11 @@ pub struct ProveResponse {
 impl ProverClient {
     pub fn new(base: impl Into<String>) -> Self {
         let base = base.into();
-        // Real Groth16 proving locally can take many minutes; the default
-        // reqwest 30s timeout would cut us off before the prover finishes.
+        // Real Groth16 proving locally can take an hour-plus on consumer
+        // hardware (load proving key, witness gen, MSM); the default reqwest
+        // 30s timeout would cut us off well before the prover finishes.
         let http = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30 * 60))
+            .timeout(std::time::Duration::from_secs(2 * 60 * 60))
             .build()
             .expect("build reqwest client");
         Self {

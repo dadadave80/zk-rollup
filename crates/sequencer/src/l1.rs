@@ -67,8 +67,13 @@ impl L1Client {
 
     pub async fn submit_batch(&self, public_values: Vec<u8>, proof_bytes: Vec<u8>) -> Result<SettleOutcome> {
         let rollup = Rollup::new(self.rollup_address, self.provider()?);
+        // Set an explicit gas limit (~3x the empirical 280k for v6.1.0 Groth16
+        // verify on Sepolia). alloy's automatic eth_estimateGas occasionally
+        // fails on Sepolia for our payload even when cast estimate succeeds —
+        // unclear root cause. Bypass it.
         let pending = rollup
             .submitBatch(Bytes::from(public_values), Bytes::from(proof_bytes))
+            .gas(800_000)
             .send()
             .await
             .map_err(|e| anyhow!("send submitBatch failed: {e:?}"))?;

@@ -249,6 +249,11 @@ async fn trigger_batch(AxumState(ctx): AxumState<AppCtx>) -> Result<Json<BatchRe
     // 3. Decode hex into bytes for L1 calldata.
     let pv_bytes = hex_to_bytes(&prove.public_values).map_err(|e| ApiError::Internal(e))?;
     let proof_bytes = hex_to_bytes(&prove.proof).map_err(|e| ApiError::Internal(e))?;
+    info!(
+        proof_bytes = proof_bytes.len(),
+        pv_bytes = pv_bytes.len(),
+        "decoded proof + pv for L1 submission",
+    );
 
     // 4. Submit on L1.
     let outcome = match ctx.l1.submit_batch(pv_bytes, proof_bytes).await {

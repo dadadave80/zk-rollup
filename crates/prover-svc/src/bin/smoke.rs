@@ -67,7 +67,7 @@ fn main() -> Result<()> {
     let (_, bob) = make_wallet(2);
 
     let mut state = State::new();
-    state.set(alice, Account { balance: 1000, nonce: 0 });
+    state.set(alice, Account { balance: 1_000_000, nonce: 0 });
     state.set(bob, Account { balance: 0, nonce: 0 });
     let host_prev_root = state.merkle_root();
 
@@ -113,6 +113,11 @@ fn main() -> Result<()> {
     println!("vkey       = {}", prove.vkey);
     println!("public_vals= {} ({} bytes)", &prove.public_values[..18], (prove.public_values.len() - 2) / 2);
     println!("proof      = {} ({} bytes)", if prove.proof.len() > 18 { &prove.proof[..18] } else { &prove.proof }, (prove.proof.len() - 2) / 2);
+
+    std::fs::write("/tmp/zk-proof.hex", &prove.proof)?;
+    std::fs::write("/tmp/zk-pv.hex", &prove.public_values)?;
+    std::fs::write("/tmp/zk-vkey.hex", &prove.vkey)?;
+    println!("(wrote /tmp/zk-{{proof,pv,vkey}}.hex for inspection)");
     if prove.prev_root != prev_root_hex {
         return Err(anyhow!("/prove prev_root mismatch"));
     }

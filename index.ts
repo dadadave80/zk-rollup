@@ -29,7 +29,12 @@ const SEQUENCER_PORT = 7001;
 const ANVIL_PORT = 8545;
 
 // Canonical SP1 verifier gateway on Sepolia (per Succinct's docs).
-const SEPOLIA_SP1_VERIFIER = "0x3B6041173B80E77f038f3F2C0f9744f04837185e" as Hex;
+// The gateway only dispatches to verifiers whose selectors are registered
+// upstream; if your SP1 SDK version isn't registered yet, set
+// SP1_VERIFIER to this address explicitly only when you've confirmed it
+// supports your proof's selector.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _SEPOLIA_SP1_GATEWAY = "0x3B6041173B80E77f038f3F2C0f9744f04837185e" as Hex;
 
 const ALICE_KEY = "0x0101010101010101010101010101010101010101010101010101010101010101" as Hex;
 const BOB_KEY = "0x0202020202020202020202020202020202020202020202020202020202020202" as Hex;
@@ -50,15 +55,19 @@ function requireEnv(key: string): string {
 
 function buildNetworkConfig(): NetworkConfig {
   if (IS_SEPOLIA) {
+    // The canonical SP1 gateway on Sepolia (SEPOLIA_SP1_VERIFIER) only routes
+    // proofs whose verifier selector matches a verifier Succinct has
+    // registered there. SP1 SDK 6.1.0's proof bytes don't currently route
+    // through the gateway, so by default we deploy our own verifier (~3M
+    // gas one-time). Set SP1_VERIFIER explicitly to override.
+    const presetVerifier = process.env.SP1_VERIFIER as Hex | undefined;
     return {
       label: "sepolia",
       rpcUrl: requireEnv("SEPOLIA_RPC_URL"),
       deployerPrivateKey: (requireEnv("DEPLOYER_PRIVATE_KEY").startsWith("0x")
         ? requireEnv("DEPLOYER_PRIVATE_KEY")
         : `0x${requireEnv("DEPLOYER_PRIVATE_KEY")}`) as Hex,
-      // Always use the canonical SP1 gateway on Sepolia for groth16 mode;
-      // mock mode on Sepolia would deploy our own SP1MockVerifier (allowed).
-      sp1Verifier: PROOF_MODE === "groth16" ? SEPOLIA_SP1_VERIFIER : null,
+      sp1Verifier: presetVerifier ?? null,
       spawnAnvil: false,
     };
   }
@@ -260,11 +269,24 @@ async function main() {
 
   // ── 5. prover-svc ────────────────────────────────────────────────────
   step(`Starting prover-svc on :${PROVER_PORT} (PROOF_MODE=${PROOF_MODE})`);
-  // SP1_PROVER picks the backend (mock/cpu/network/cuda); PROOF_MODE picks
-  // the proof type our sp1-script asks for. Mock pairs with the mock backend;
-  // groth16 runs against the cpu backend by default (or network/cuda if the
-  // user set SP1_PROVER themselves).
-  const proverBackend = process.env.SP1_PROVER ?? (PROOF_MODE === "mock" ? "mock" : "cpu");
+  // SP1_PROVER picks the *backend* (mock/cpu/network/cuda); PROOF_MODE picks
+  // the proof *type* (mock vs groth16). The two must be compatible:
+  //   - PROOF_MODE=mock pairs with SP1_PROVER=mock
+  //   - PROOF_MODE=groth16 needs a real backend (cpu/network/cuda) — the
+  //     mock backend returns degenerate proofs with empty bytes that fail
+  //     on-chain verification.
+  // We respect a user-provided SP1_PROVER, but veto mock when proof type
+  // is groth16 — that combination is silently broken.
+  let proverBackend = process.env.SP1_PROVER;
+  if (PROOF_MODE !== "mock") {
+    if (proverBackend === "mock") {
+      log(`  ⚠ ignoring SP1_PROVER=mock from env: PROOF_MODE=${PROOF_MODE} requires a real backend; using cpu`);
+      proverBackend = "cpu";
+    }
+    proverBackend = proverBackend ?? "cpu";
+  } else {
+    proverBackend = proverBackend ?? "mock";
+  }
   await spawnService("prover-svc", [proverBin], {
     PROOF_MODE,
     SP1_PROVER: proverBackend,

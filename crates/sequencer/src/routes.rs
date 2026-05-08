@@ -29,8 +29,6 @@ pub struct AppCtx {
 pub enum ApiError {
     #[error("bad request: {0}")]
     BadRequest(String),
-    #[error("not found: {0}")]
-    NotFound(String),
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -39,7 +37,6 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (code, msg) = match &self {
             ApiError::BadRequest(m) => (StatusCode::BAD_REQUEST, m.clone()),
-            ApiError::NotFound(m) => (StatusCode::NOT_FOUND, m.clone()),
             ApiError::Internal(m) => (StatusCode::INTERNAL_SERVER_ERROR, m.clone()),
         };
         if matches!(self, ApiError::Internal(_)) {
@@ -246,12 +243,30 @@ async fn trigger_batch(AxumState(ctx): AxumState<AppCtx>) -> Result<Json<BatchRe
     };
     info!(prev_root = %prove.prev_root, new_root = %prove.new_root, "proof produced");
 
-    // 3. Decode hex into bytes for L1 calldata.
+    // 3. Decode hex into bytes for L1 calldata, and re-derive the canonical
+    //    roots from pv_bytes itself (NOT the prover-svc's sibling JSON
+    //    fields). Layout is abi.encode((bytes32, bytes32, bytes32)) =
+    //    32 bytes prevRoot || 32 bytes newRoot || 32 bytes batchHash. L1
+    //    will decode the same bytes; if the JSON fields disagreed with the
+    //    abi-encoded payload we'd silently advance our canonical view to
+    //    something different than L1.
     let pv_bytes = hex_to_bytes(&prove.public_values).map_err(|e| ApiError::Internal(e))?;
     let proof_bytes = hex_to_bytes(&prove.proof).map_err(|e| ApiError::Internal(e))?;
+    if pv_bytes.len() != 96 {
+        return Err(ApiError::Internal(format!(
+            "prover-svc returned non-96-byte public_values: {} bytes",
+            pv_bytes.len()
+        )));
+    }
+    let mut prev_root_pv = [0u8; 32];
+    prev_root_pv.copy_from_slice(&pv_bytes[..32]);
+    let mut new_root_pv = [0u8; 32];
+    new_root_pv.copy_from_slice(&pv_bytes[32..64]);
     info!(
         proof_bytes = proof_bytes.len(),
         pv_bytes = pv_bytes.len(),
+        prev_root = %hex::encode(prev_root_pv),
+        new_root = %hex::encode(new_root_pv),
         "decoded proof + pv for L1 submission",
     );
 
@@ -269,22 +284,20 @@ async fn trigger_batch(AxumState(ctx): AxumState<AppCtx>) -> Result<Json<BatchRe
         }
     };
 
-    // 5. Commit the batch to canonical state locally.
-    let new_root_bytes = hex_to_bytes(&prove.new_root)
-        .map_err(|e| ApiError::Internal(e))?;
-    if new_root_bytes.len() != 32 {
-        return Err(ApiError::Internal(format!(
-            "prover-svc returned non-32-byte new_root: {} bytes",
-            new_root_bytes.len()
-        )));
-    }
-    let mut new_root = [0u8; 32];
-    new_root.copy_from_slice(&new_root_bytes);
-
+    // 5. Commit the batch to canonical state locally. If this fails after
+    //    L1 has already advanced, the local sequencer view is now BEHIND
+    //    L1 and a restart / manual sync is needed to recover. We surface
+    //    that explicitly in the error.
     {
         let mut s = ctx.state.write().await;
-        s.commit_batch(&batch, new_root)
-            .map_err(|e| ApiError::Internal(format!("local commit failed: {e}")))?;
+        s.commit_batch(&batch, new_root_pv).map_err(|e| {
+            ApiError::Internal(format!(
+                "L1 settled (tx {:?}) but local commit_batch failed: {e}. \
+                 Sequencer canonical state is now behind L1; restart with \
+                 a refreshed genesis or sync from L1 events.",
+                outcome.tx_hash
+            ))
+        })?;
     }
 
     let s = ctx.state.read().await;

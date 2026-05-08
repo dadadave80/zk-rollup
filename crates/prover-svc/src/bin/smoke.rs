@@ -15,6 +15,7 @@ struct WorkRequest<'a> {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ExecuteResponse {
     public_values: String,
     prev_root: String,

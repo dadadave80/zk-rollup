@@ -84,7 +84,13 @@ impl SequencerState {
         }
         self.canonical_root = new_root;
         self.batch_count += 1;
-        // speculative was reset in drain_for_batch; nothing else to do.
+        // Rebuild speculative from new canonical + current mempool. drain_for_batch
+        // pinned speculative to the pre-batch canonical, but new txs may have
+        // arrived while the prover was running; we want speculative = canonical
+        // + everything still pending. Drop any tx that no longer applies.
+        let mut spec = self.canonical_state.clone();
+        self.mempool.retain(|tx| apply_tx(&mut spec, tx).is_ok());
+        self.speculative_state = spec;
         Ok(())
     }
 }

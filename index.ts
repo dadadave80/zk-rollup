@@ -130,7 +130,7 @@ async function buildSignedTx(
   return { from: account.address, to, amount, nonce, signature };
 }
 
-async function postJSON<T>(url: string, body: unknown, timeoutMs = 30 * 60 * 1000): Promise<T> {
+async function postJSON<T>(url: string, body: unknown, timeoutMs = 2 * 60 * 60 * 1000): Promise<T> {
   const r = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -313,10 +313,36 @@ async function main() {
   }
 
   if (PROOF_MODE !== "mock") {
-    log(`  triggering batch — groth16 proving locally can take a few minutes...`);
+    log(`  triggering batch — groth16 proving locally can take many minutes...`);
   }
   const proveStarted = Date.now();
-  const batch = await postJSON<{
+  // Bun's fetch silently hits an internal idle timeout if the response body
+  // doesn't stream for several minutes (the Groth16 prover blocks the socket
+  // while it churns). Shell out to curl with a 2-hour limit instead.
+  const curlResult = Bun.spawnSync([
+    "curl",
+    "-sS",
+    "-m",
+    String(2 * 60 * 60),
+    "-X",
+    "POST",
+    "-H",
+    "content-type: application/json",
+    "-d",
+    "{}",
+    `http://localhost:${SEQUENCER_PORT}/batch`,
+  ]);
+  if (curlResult.exitCode !== 0) {
+    throw new Error(
+      `curl /batch failed (exit ${curlResult.exitCode}):\n${curlResult.stderr.toString()}`,
+    );
+  }
+  const batchRaw = curlResult.stdout.toString();
+  const batchParsed = JSON.parse(batchRaw);
+  if (batchParsed.error) {
+    throw new Error(`/batch returned error: ${batchParsed.error}`);
+  }
+  const batch = batchParsed as {
     batch_number: number;
     txs: number;
     prev_root: string;
@@ -325,7 +351,7 @@ async function main() {
     l1_tx_hash: string;
     l1_block: number;
     gas_used: number;
-  }>(`http://localhost:${SEQUENCER_PORT}/batch`, {});
+  };
 
   const proveSecs = ((Date.now() - proveStarted) / 1000).toFixed(1);
   log(`\n═══ Batch #${batch.batch_number} settled (prove + L1 in ${proveSecs}s) ═══`);

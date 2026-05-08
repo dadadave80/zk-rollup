@@ -60,7 +60,7 @@ fn signed_tx(sk: &SigningKey, from: Address, to: Address, amount: u64, nonce: u6
 fn main() -> Result<()> {
     let base = std::env::var("PROVER_SVC_URL").unwrap_or_else(|_| "http://localhost:7002".to_string());
     let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(30 * 60))
+        .timeout(std::time::Duration::from_secs(2 * 60 * 60))
         .build()?;
 
     let (alice_sk, alice) = make_wallet(1);

@@ -71,9 +71,12 @@ impl L1Client {
             .submitBatch(Bytes::from(public_values), Bytes::from(proof_bytes))
             .send()
             .await
-            .context("send submitBatch")?;
+            .map_err(|e| anyhow!("send submitBatch failed: {e:?}"))?;
         let tx_hash = *pending.tx_hash();
-        let receipt = pending.get_receipt().await.context("await submitBatch receipt")?;
+        let receipt = pending
+            .get_receipt()
+            .await
+            .map_err(|e| anyhow!("await submitBatch receipt failed: {e:?}"))?;
         if !receipt.status() {
             return Err(anyhow!(
                 "submitBatch reverted in tx {tx_hash} (block {:?})",

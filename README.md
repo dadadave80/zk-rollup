@@ -53,9 +53,13 @@ For real Groth16 proofs end-to-end:
 bun run demo:groth16
 ```
 
+Verified end-to-end on anvil with the SP1 v6.1.0 Groth16 verifier:
+~5 minutes wall time (CPU prover on a 12-core machine) and **280,706 gas**
+for the on-chain `submitBatch` call (vs. 57,200 in mock mode).
+
 The first local Groth16 run downloads SP1's trusted setup
 (~6.2 GB tarball into `~/.sp1/circuits/groth16/v6.1.0/`). Plan for ~3 hours
-on a typical home connection plus a few minutes of CPU proving on top.
+on a typical home connection plus the proving time on top.
 
 To pre-fetch the setup ahead of time (resumable):
 

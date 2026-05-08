@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import {Script, console} from "forge-std/Script.sol";
 import {SP1MockVerifier} from "@sp1-contracts/SP1MockVerifier.sol";
-import {SP1Verifier as SP1VerifierGroth16} from "@sp1-contracts/v6.0.0/SP1VerifierGroth16.sol";
+import {SP1Verifier as SP1VerifierGroth16} from "@sp1-contracts/v6.1.0/SP1VerifierGroth16.sol";
 import {Rollup} from "../src/Rollup.sol";
 
 /// @notice Deploy script for Rollup. Driven entirely by env so the same script works
@@ -39,7 +39,7 @@ contract Deploy is Script {
             console.log("Deployed SP1MockVerifier at", verifier);
         } else {
             verifier = address(new SP1VerifierGroth16());
-            console.log("Deployed SP1VerifierGroth16 (v6.0.0) at", verifier);
+            console.log("Deployed SP1VerifierGroth16 (v6.1.0) at", verifier);
         }
 
         rollup = new Rollup(verifier, programVKey, genesisRoot);

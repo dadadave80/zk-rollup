@@ -6,16 +6,12 @@ members = [
     "crates/sp1-script",
     "crates/sequencer",
     "crates/prover-svc",
-    "crates/state",
-    "crates/batcher",
-    "crates/circuits",
-    "crates/circuit-verifier",
-    "crates/node",
 ]
+# sp1-program-stf is excluded because sp1-zkvm only compiles for the
+# riscv32im-succinct-zkvm-elf target. It's built by sp1-build from
+# sp1-script's build.rs and embedded via include_elf!.
 exclude = [
     "crates/sp1-program-stf",
-    "crates/sp1-program-agg",
-    "crates/sp1-program-circ",
 ]
 
 [workspace.package]

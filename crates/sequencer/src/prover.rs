@@ -26,6 +26,10 @@ struct WorkRequest<'a> {
 pub struct ProveResponse {
     pub proof: String,
     pub public_values: String,
+    /// Returned by prover-svc but not currently consulted: the sequencer
+    /// pinned the program vkey at startup via /info, and the L1 contract's
+    /// programVKey is immutable.
+    #[allow(dead_code)]
     pub vkey: String,
     pub prev_root: String,
     pub new_root: String,

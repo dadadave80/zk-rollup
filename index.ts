@@ -2,9 +2,10 @@
  * One-shot orchestrator for the SP1 zk-rollup demo.
  *
  *   bun run demo            # mock-prover end-to-end on a local anvil
- *   bun run demo:groth16    # real Groth16 proving (slow)
+ *   bun run demo:groth16    # real Groth16 proving on a local anvil
+ *   bun run demo:sepolia    # real Groth16 proving on Sepolia (needs env)
  *
- * The script owns the full lifecycle of anvil + prover-svc + sequencer, so it
+ * The script owns the full lifecycle of L1 + prover-svc + sequencer, so it
  * always boots from a clean known state. Press Ctrl-C to tear everything down.
  */
 
@@ -19,19 +20,65 @@ const TARGET_RELEASE = join(REPO, "target", "release");
 const CONTRACTS = join(REPO, "contracts");
 const GENESIS_PATH = join(REPO, "genesis.json");
 
-const PROOF_MODE = process.env.PROOF_MODE ?? "mock";
-const ANVIL_PORT = 8545;
+const NETWORK = (process.env.NETWORK ?? "anvil").toLowerCase();
+const IS_SEPOLIA = NETWORK === "sepolia";
+const PROOF_MODE = process.env.PROOF_MODE ?? (IS_SEPOLIA ? "groth16" : "mock");
+
 const PROVER_PORT = 7002;
 const SEQUENCER_PORT = 7001;
-const DEPLOYER_PRIVATE_KEY =
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"; // anvil[0]
+const ANVIL_PORT = 8545;
+
+// Canonical SP1 verifier gateway on Sepolia (per Succinct's docs).
+const SEPOLIA_SP1_VERIFIER = "0x3B6041173B80E77f038f3F2C0f9744f04837185e" as Hex;
 
 const ALICE_KEY = "0x0101010101010101010101010101010101010101010101010101010101010101" as Hex;
 const BOB_KEY = "0x0202020202020202020202020202020202020202020202020202020202020202" as Hex;
 
+interface NetworkConfig {
+  label: string;
+  rpcUrl: string;
+  deployerPrivateKey: Hex;
+  sp1Verifier: Hex | null;
+  spawnAnvil: boolean;
+}
+
+function requireEnv(key: string): string {
+  const v = process.env[key];
+  if (!v) throw new Error(`${key} is not set; required for NETWORK=sepolia`);
+  return v;
+}
+
+function buildNetworkConfig(): NetworkConfig {
+  if (IS_SEPOLIA) {
+    return {
+      label: "sepolia",
+      rpcUrl: requireEnv("SEPOLIA_RPC_URL"),
+      deployerPrivateKey: (requireEnv("DEPLOYER_PRIVATE_KEY").startsWith("0x")
+        ? requireEnv("DEPLOYER_PRIVATE_KEY")
+        : `0x${requireEnv("DEPLOYER_PRIVATE_KEY")}`) as Hex,
+      // Always use the canonical SP1 gateway on Sepolia for groth16 mode;
+      // mock mode on Sepolia would deploy our own SP1MockVerifier (allowed).
+      sp1Verifier: PROOF_MODE === "groth16" ? SEPOLIA_SP1_VERIFIER : null,
+      spawnAnvil: false,
+    };
+  }
+  return {
+    label: "anvil",
+    rpcUrl: `http://localhost:${ANVIL_PORT}`,
+    // anvil[0] — fine for local because it isn't connected to anything outside.
+    deployerPrivateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as Hex,
+    sp1Verifier: null,
+    spawnAnvil: true,
+  };
+}
+
+// Network config is computed in main() so missing-env errors land in the
+// shared catch handler with a clean message instead of a stack trace.
+let NET: NetworkConfig;
+let TOTAL_STEPS = 9;
+
 const procs: Subprocess[] = [];
 let stepCount = 0;
-const TOTAL_STEPS = 9;
 
 function log(...args: unknown[]) {
   console.log(...args);
@@ -152,34 +199,41 @@ async function getJSON<T>(url: string): Promise<T> {
 
 async function main() {
   const t0 = Date.now();
-  log(`SP1 zk-rollup demo (PROOF_MODE=${PROOF_MODE})`);
+  NET = buildNetworkConfig();
+  TOTAL_STEPS = NET.spawnAnvil ? 9 : 8;
+  log(`SP1 zk-rollup demo (NETWORK=${NET.label}, PROOF_MODE=${PROOF_MODE})`);
 
   // ── 1. Preflight ─────────────────────────────────────────────────────
   step("Preflight: release binaries + ports");
   const proverBin = requireReleaseBinary("prover-svc");
   const sequencerBin = requireReleaseBinary("sequencer");
   const computeRootBin = requireReleaseBinary("compute-root");
-  requireAnvilFree();
+  if (NET.spawnAnvil) requireAnvilFree();
   log(`  ✓ binaries present`);
-
-  // ── 2. anvil ─────────────────────────────────────────────────────────
-  step("Starting anvil on :8545");
-  await spawnService("anvil", ["anvil", "--port", String(ANVIL_PORT), "--silent"]);
-  // anvil's RPC endpoint isn't a regular GET, so wait via a JSON-RPC POST.
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < 30_000) {
-    try {
-      const r = await fetch(`http://localhost:${ANVIL_PORT}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", method: "web3_clientVersion", params: [], id: 1 }),
-        signal: AbortSignal.timeout(1500),
-      });
-      if (r.ok) break;
-    } catch {}
-    await Bun.sleep(300);
+  if (IS_SEPOLIA) {
+    log(`  ✓ Sepolia mode: RPC=${NET.rpcUrl}`);
+    log(`  ✓ SP1 verifier: ${NET.sp1Verifier ?? "(deploy fresh — mock mode on Sepolia)"}`);
   }
-  log(`  ✓ anvil up`);
+
+  // ── 2. anvil (skipped on Sepolia) ────────────────────────────────────
+  if (NET.spawnAnvil) {
+    step("Starting anvil on :8545");
+    await spawnService("anvil", ["anvil", "--port", String(ANVIL_PORT), "--silent"]);
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 30_000) {
+      try {
+        const r = await fetch(NET.rpcUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", method: "web3_clientVersion", params: [], id: 1 }),
+          signal: AbortSignal.timeout(1500),
+        });
+        if (r.ok) break;
+      } catch {}
+      await Bun.sleep(300);
+    }
+    log(`  ✓ anvil up`);
+  }
 
   // ── 3. Genesis ───────────────────────────────────────────────────────
   step("Writing genesis.json");
@@ -232,28 +286,31 @@ async function main() {
 
   // ── 7. Deploy Rollup ─────────────────────────────────────────────────
   step("Deploying Rollup");
-  const forge = Bun.spawnSync(
-    [
-      "forge",
-      "script",
-      "script/Deploy.s.sol",
-      "--rpc-url",
-      `http://localhost:${ANVIL_PORT}`,
-      "--broadcast",
-      "--private-key",
-      DEPLOYER_PRIVATE_KEY,
-      "--json",
-    ],
-    {
-      cwd: CONTRACTS,
-      env: {
-        ...process.env,
-        PROGRAM_VKEY: proverInfo.vkey,
-        GENESIS_ROOT: genesisRoot,
-        PROOF_MODE,
-      },
-    },
-  );
+  const forgeArgs = [
+    "forge",
+    "script",
+    "script/Deploy.s.sol",
+    "--rpc-url",
+    NET.rpcUrl,
+    "--broadcast",
+    "--private-key",
+    NET.deployerPrivateKey,
+    "--json",
+  ];
+  if (IS_SEPOLIA) {
+    // Sepolia confirmations are slow; let the broadcaster wait for inclusion.
+    forgeArgs.push("--slow");
+  }
+  const deployEnv: Record<string, string> = {
+    PROGRAM_VKEY: proverInfo.vkey,
+    GENESIS_ROOT: genesisRoot,
+    PROOF_MODE,
+  };
+  if (NET.sp1Verifier) deployEnv.SP1_VERIFIER = NET.sp1Verifier;
+  const forge = Bun.spawnSync(forgeArgs, {
+    cwd: CONTRACTS,
+    env: { ...process.env, ...deployEnv },
+  });
   if (forge.exitCode !== 0) {
     throw new Error(
       `forge script failed:\n${forge.stdout.toString()}\n${forge.stderr.toString()}`,
@@ -278,9 +335,9 @@ async function main() {
   // ── 8. sequencer ─────────────────────────────────────────────────────
   step(`Starting sequencer on :${SEQUENCER_PORT}`);
   await spawnService("sequencer", [sequencerBin], {
-    DEPLOYER_PRIVATE_KEY,
+    DEPLOYER_PRIVATE_KEY: NET.deployerPrivateKey,
     ROLLUP_ADDRESS: rollupAddress,
-    L1_RPC_URL: `http://localhost:${ANVIL_PORT}`,
+    L1_RPC_URL: NET.rpcUrl,
     PROVER_SVC_URL: `http://localhost:${PROVER_PORT}`,
     SEQUENCER_PORT: String(SEQUENCER_PORT),
     GENESIS_PATH,
@@ -359,6 +416,9 @@ async function main() {
   log(`  new_root   = ${batch.new_root}`);
   log(`  batch_hash = ${batch.batch_hash}`);
   log(`  l1_tx_hash = ${batch.l1_tx_hash}`);
+  if (IS_SEPOLIA) {
+    log(`               https://sepolia.etherscan.io/tx/${batch.l1_tx_hash}`);
+  }
   log(`  l1_block   = ${batch.l1_block}`);
   log(`  gas_used   = ${batch.gas_used.toLocaleString()}`);
 
@@ -377,7 +437,6 @@ async function main() {
   log(`Logs: /tmp/zk-rollup-anvil.log /tmp/zk-rollup-prover-svc.log /tmp/zk-rollup-sequencer.log`);
   log(`Press Ctrl-C to stop background services.`);
 
-  // Park indefinitely so the user can poke the running services.
   await new Promise(() => {});
 }
 

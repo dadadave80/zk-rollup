@@ -1301,10 +1301,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
-name = "batcher"
-version = "0.1.0"
-
-[[package]]
 name = "bimap"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1618,14 +1614,6 @@ dependencies = [
  "serde",
  "windows-link",
 ]
-
-[[package]]
-name = "circuit-verifier"
-version = "0.1.0"
-
-[[package]]
-name = "circuits"
-version = "0.1.0"
 
 [[package]]
 name = "clang-sys"
@@ -3623,10 +3611,6 @@ name = "multimap"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d87ecb2933e8aeadb3e3a02b828fed80a7528047e68b4f424523a0981a3a084"
-
-[[package]]
-name = "node"
-version = "0.1.0"
 
 [[package]]
 name = "nom"
@@ -6688,10 +6672,6 @@ name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
-
-[[package]]
-name = "state"
-version = "0.1.0"
 
 [[package]]
 name = "static_assertions"

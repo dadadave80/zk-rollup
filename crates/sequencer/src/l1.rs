@@ -60,11 +60,6 @@ impl L1Client {
         Ok(root.0)
     }
 
-    pub async fn batch_count(&self) -> Result<u64> {
-        let r = Rollup::new(self.rollup_address, self.provider()?);
-        Ok(r.batchCount().call().await?)
-    }
-
     pub async fn submit_batch(&self, public_values: Vec<u8>, proof_bytes: Vec<u8>) -> Result<SettleOutcome> {
         let rollup = Rollup::new(self.rollup_address, self.provider()?);
         // Set an explicit gas limit (~3x the empirical 280k for v6.1.0 Groth16

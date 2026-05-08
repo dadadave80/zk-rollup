@@ -21,7 +21,7 @@ import {Rollup} from "../src/Rollup.sol";
 ///                        gateway: 0x3B6041173B80E77f038f3F2C0f9744f04837185e).
 ///                        If unset:
 ///                        mock     → deploy a fresh SP1MockVerifier
-///                        groth16  → deploy a fresh SP1VerifierGroth16 (v6.0.0)
+///                        groth16  → deploy a fresh SP1VerifierGroth16 (v6.1.0)
 contract Deploy is Script {
     function run() external returns (Rollup rollup, address verifier) {
         bytes32 programVKey = vm.envBytes32("PROGRAM_VKEY");
@@ -55,7 +55,15 @@ contract Deploy is Script {
         console.log("  proofMode             ", proofMode);
     }
 
+    /// Lower-cases the input before comparing so PROOF_MODE=Mock / MOCK / mock
+    /// all route to the same branch. The Rust side already lower-cases.
     function _isMock(string memory mode) internal pure returns (bool) {
-        return keccak256(bytes(mode)) == keccak256(bytes("mock"));
+        bytes memory b = bytes(mode);
+        bytes memory lower = new bytes(b.length);
+        for (uint256 i = 0; i < b.length; i++) {
+            uint8 c = uint8(b[i]);
+            lower[i] = (c >= 0x41 && c <= 0x5A) ? bytes1(c + 32) : b[i];
+        }
+        return keccak256(lower) == keccak256(bytes("mock"));
     }
 }

@@ -319,9 +319,7 @@ zk-rollup/
 │   ├── sp1-program-stf/    # zkVM binary; commits (prevRoot, newRoot, batchHash)
 │   ├── sp1-script/         # host: execute_only, prove(mode), vkey_bytes32
 │   ├── prover-svc/         # axum HTTP service wrapping sp1-script
-│   ├── sequencer/          # axum HTTP service: mempool, speculative state, L1 client
-│   └── ...                 # batcher / circuits / circuit-verifier / node /
-│                           # sp1-program-agg / sp1-program-circ / state — v2 stubs
+│   └── sequencer/          # axum HTTP service: mempool, speculative state, L1 client
 │
 └── contracts/              # Foundry project
     ├── src/Rollup.sol      # SP1 verifier integration + state root
@@ -558,24 +556,24 @@ they're hermetic; no network or trusted setup needed.
 
 ## What's intentionally out of scope
 
-These crates are deliberately left as `cargo new --lib` stubs — they're
-scaffolding for v2 work and aren't on the demo path:
+The demo aims to be a complete-but-minimal validity rollup; production
+features that would be obvious next steps:
 
-| Crate | Intended for |
-|---|---|
-| `sp1-program-agg` | Multi-batch proof aggregation (one Groth16 over many STF proofs) |
-| `sp1-program-circ` | Reserved for an alternative circuit family |
-| `circuits` / `circuit-verifier` | Redundant with the on-chain SP1 verifier; placeholders for a custom verifier |
-| `batcher` | Folded into the sequencer — would split out for multi-sequencer setups |
-| `node` | Passive sync from L1 events; the sequencer is the source of truth in the demo |
-
-Things that are missing for production but obvious to add:
-
-- Bridges (deposits / withdrawals between L1 and L2 accounts)
-- A real sparse merkle tree with on-L1 inclusion proofs
-- Decentralised sequencing or at least a force-include path
-- Proof aggregation (one L1 verify cost amortised over many batches)
-- Replay protection beyond sequential nonces (e.g. domain separators per chain)
+- **Bridges** — deposits / withdrawals between L1 and L2 accounts. Right
+  now genesis is hard-coded in `genesis.json` and there's no way to move
+  funds in or out.
+- **Sparse merkle tree** — the current `State::merkle_root` is a flat
+  keccak fold over the sorted account list. A real SMT would let
+  `Rollup` accept on-chain inclusion proofs of individual accounts.
+- **Proof aggregation** — one Groth16 verify on L1 currently amortises
+  over a single STF proof. An aggregator that wraps many STF proofs
+  into one Groth16 would cut per-batch L1 cost.
+- **Decentralised sequencing** — there's a single sequencer with no
+  force-include path. A multi-sequencer setup or an L1-mediated
+  inclusion list would remove the censorship vector.
+- **Replay protection** — sequential nonces are the only thing keeping
+  txs distinct. A domain separator per chain (chainId mixed into the
+  signing hash) would prevent cross-chain signature replay.
 
 ---
 

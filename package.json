@@ -7,16 +7,21 @@
     "demo": "bun run index.ts",
     "demo:groth16": "PROOF_MODE=groth16 bun run index.ts",
     "demo:sepolia": "NETWORK=sepolia PROOF_MODE=groth16 bun run index.ts",
+    "web": "bun --hot run web.ts",
     "build:rust": "cargo build --release -p sp1-script -p prover-svc -p sequencer",
     "build:contracts": "cd contracts && forge build"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
     "viem": "^2.48.8"
   }
 }

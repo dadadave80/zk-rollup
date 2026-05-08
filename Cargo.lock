@@ -5351,6 +5351,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tiny-keccak",
  "tokio",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
 ]
